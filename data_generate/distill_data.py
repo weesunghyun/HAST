@@ -1,4 +1,3 @@
-
 import os
 import json
 import torch
@@ -11,6 +10,18 @@ import random
 import pickle
 import sys
 import torchvision.transforms as transforms
+
+
+def check_path(model_path):
+    """
+    Check if the directory exists, if not create it.
+    Args:
+        model_path: path to the model
+    """
+    directory = os.path.dirname(model_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
 
 class LabelSmoothing(nn.Module):
     """NLL loss with label smoothing.
@@ -68,6 +79,7 @@ class DistillData(object):
     def getDistilData_hardsample(self,
                                 model_name="resnet18",
                                 teacher_model=None,
+                                num_data=1280,
                                 batch_size=256,
                                 num_batch=1,
                                 group=1,
@@ -84,6 +96,9 @@ class DistillData(object):
 
         print(data_path, label_path)
 
+        check_path(data_path)
+        check_path(label_path)
+
         if model_name in ['resnet20_cifar10','resnet20_cifar100']:
             shape = (batch_size, 3, 32, 32)
         else:
@@ -92,6 +107,13 @@ class DistillData(object):
         # initialize hooks and single-precision model
         teacher_model = teacher_model.cuda()
         teacher_model = teacher_model.eval()
+
+        # Determine number of classes from model output dimension
+        with torch.no_grad():
+            dummy_input = torch.randn(1, *shape[1:]).cuda()
+            dummy_output = teacher_model(dummy_input)
+            self.num_classes = dummy_output.shape[1]
+            print(f"Model output dimension: {self.num_classes} classes")
 
         refined_gaussian = []
         labels_list = []
@@ -104,7 +126,7 @@ class DistillData(object):
             if isinstance(m, nn.BatchNorm2d):
                 m.register_forward_hook(self.hook_fn_forward)
 
-        for i in range(1280//batch_size):
+        for i in range(num_data//batch_size):
             # initialize the criterion, optimizer, and scheduler
 
             if model_name in ['resnet20_cifar10', 'resnet20_cifar100']:
@@ -115,21 +137,16 @@ class DistillData(object):
 
             gaussian_data = torch.randn(shape).cuda()
             gaussian_data.requires_grad = True
-            optimizer = optim.Adam([gaussian_data], lr=0.5)
+            # optimizer = optim.Adam([gaussian_data], lr=0.5)
+            optimizer = optim.Adam([gaussian_data], lr=0.05)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                              min_lr=1e-4,
                                                              verbose=False,
                                                              patience=50)
 
-            if model_name == 'resnet20_cifar10':
-                labels = torch.randint(0, 10, (len(gaussian_data),)).cuda()
-                labels_mask = F.one_hot(labels, num_classes=10).float()
-            elif model_name == 'resnet20_cifar100':
-                labels = torch.randint(0, 100, (len(gaussian_data),)).cuda()
-                labels_mask = F.one_hot(labels, num_classes=100).float()
-            else:
-                labels = torch.randint(0, 1000, (len(gaussian_data),)).cuda()
-                labels_mask = F.one_hot(labels, num_classes=1000).float()
+            # Generate labels based on the actual number of classes
+            labels = torch.randint(0, self.num_classes, (len(gaussian_data),)).cuda()
+            labels_mask = F.one_hot(labels, num_classes=self.num_classes).float()
             gt = labels.data.cpu().numpy()
 
             for it in range(500*2):
@@ -175,13 +192,14 @@ class DistillData(object):
                 var_loss = var_loss / len(self.mean_list)
 
                 total_loss = mean_loss + var_loss + loss_target
-                print(i, it, 'lr', optimizer.state_dict()['param_groups'][0]['lr'],
-                      'd_acc', d_acc, 'mean_loss', mean_loss.item(), 'var_loss',
-                      var_loss.item(), 'loss_target', loss_target.item())
+                print(f"Batch: {i}, Iter: {it}, LR: {optimizer.state_dict()['param_groups'][0]['lr']:.4f}, "
+                      f"Mean Loss: {mean_loss.item():.4f}, Var Loss: {var_loss.item():.4f}, "
+                      f"Target Loss: {loss_target.item():.4f}")
 
                 optimizer.zero_grad()
                 # update the distilled data
                 total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(gaussian_data, max_norm=1.0)
                 optimizer.step()
                 scheduler.step(total_loss.item())
 

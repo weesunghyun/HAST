@@ -61,7 +61,8 @@ def arg_parse():
 
 def convert_state_dict(pretrained_state_dict, new_model):
     """
-    Converts a pretrained state_dict to match the key format of a new model.
+    Converts a pretrained ResNet-18 state_dict to match the key format of the new model,
+    including all 'num_batches_tracked' keys for BatchNorm layers.
 
     Args:
         pretrained_state_dict (OrderedDict): The state_dict object from the pretrained model.
@@ -70,69 +71,64 @@ def convert_state_dict(pretrained_state_dict, new_model):
     Returns:
         OrderedDict: The converted state_dict.
     """
-    # Create a new state_dict with the correct keys
-    new_state_dict = OrderedDict()
+    # For debugging: Check if the problematic key exists in the source state_dict
+    if 'bn1.num_batches_tracked' not in pretrained_state_dict:
+        print("Warning: 'bn1.num_batches_tracked' not found in the source checkpoint!")
 
-    # --- Key mapping logic remains the same ---
-    key_map = {
+    new_state_dict = OrderedDict()
+    key_map = {}
+
+    # 1. Initial block (conv1 and bn1)
+    key_map.update({
         'conv1.weight': 'features.init_block.conv.conv.weight',
         'bn1.weight': 'features.init_block.conv.bn.weight',
         'bn1.bias': 'features.init_block.conv.bn.bias',
         'bn1.running_mean': 'features.init_block.conv.bn.running_mean',
         'bn1.running_var': 'features.init_block.conv.bn.running_var',
-        'fc.weight': 'output.weight',
-        'fc.bias': 'output.bias',
-    }
+        'bn1.num_batches_tracked': 'features.init_block.conv.bn.num_batches_tracked'  # The missing key
+    })
 
-    # Map the layer weights for a ResNet-18 like structure
-    # This part might need adjustment depending on the exact ResNet variant.
-    # The error message implies a structure with 4 stages (layers) and 2 blocks (units) per stage.
-    for i in range(1, 5):  # For layer 1 to 4
-        for j in range(2):  # For each block in the layer (assuming 2 blocks for resnet18)
-            # Body convolutions
-            key_map[f'layer{i}.{j}.conv1.weight'] = f'features.stage{i}.unit{j+1}.body.conv1.conv.weight'
-            key_map[f'layer{i}.{j}.bn1.weight'] = f'features.stage{i}.unit{j+1}.body.conv1.bn.weight'
-            key_map[f'layer{i}.{j}.bn1.bias'] = f'features.stage{i}.unit{j+1}.body.conv1.bn.bias'
-            key_map[f'layer{i}.{j}.bn1.running_mean'] = f'features.stage{i}.unit{j+1}.body.conv1.bn.running_mean'
-            key_map[f'layer{i}.{j}.bn1.running_var'] = f'features.stage{i}.unit{j+1}.body.conv1.bn.running_var'
-            key_map[f'layer{i}.{j}.conv2.weight'] = f'features.stage{i}.unit{j+1}.body.conv2.conv.weight'
-            key_map[f'layer{i}.{j}.bn2.weight'] = f'features.stage{i}.unit{j+1}.body.conv2.bn.weight'
-            key_map[f'layer{i}.{j}.bn2.bias'] = f'features.stage{i}.unit{j+1}.body.conv2.bn.bias'
-            key_map[f'layer{i}.{j}.bn2.running_mean'] = f'features.stage{i}.unit{j+1}.body.conv2.bn.running_mean'
-            key_map[f'layer{i}.{j}.bn2.running_var'] = f'features.stage{i}.unit{j+1}.body.conv2.bn.running_var'
+    # 2. ResNet stages (layer1 to layer4)
+    for i in range(1, 5):  # Stages 1-4
+        for j in range(2):  # Units 1-2 (for ResNet-18)
+            # Body convolutions and their batchnorms
+            for conv_idx in [1, 2]:
+                old_prefix = f'layer{i}.{j}.conv{conv_idx}'
+                new_prefix = f'features.stage{i}.unit{j+1}.body.conv{conv_idx}'
+                key_map[f'{old_prefix}.weight'] = f'{new_prefix}.conv.weight'
 
-            # Downsample (identity) convolutions for stages 2, 3, and 4
-            # In ResNet, the downsample block is typically only in the first unit of a stage.
+                old_bn_prefix = f'layer{i}.{j}.bn{conv_idx}'
+                new_bn_prefix = f'features.stage{i}.unit{j+1}.body.conv{conv_idx}'
+                key_map[f'{old_bn_prefix}.weight'] = f'{new_bn_prefix}.bn.weight'
+                key_map[f'{old_bn_prefix}.bias'] = f'{new_bn_prefix}.bn.bias'
+                key_map[f'{old_bn_prefix}.running_mean'] = f'{new_bn_prefix}.bn.running_mean'
+                key_map[f'{old_bn_prefix}.running_var'] = f'{new_bn_prefix}.bn.running_var'
+                key_map[f'{old_bn_prefix}.num_batches_tracked'] = f'{new_bn_prefix}.bn.num_batches_tracked'
+
+            # Downsample (identity) convolution for stages 2, 3, 4
             if i > 1 and j == 0:
-                key_map[f'layer{i}.{j}.downsample.0.weight'] = f'features.stage{i}.unit{j+1}.identity_conv.conv.weight'
-                key_map[f'layer{i}.{j}.downsample.1.weight'] = f'features.stage{i}.unit{j+1}.identity_conv.bn.weight'
-                key_map[f'layer{i}.{j}.downsample.1.bias'] = f'features.stage{i}.unit{j+1}.identity_conv.bn.bias'
-                key_map[f'layer{i}.{j}.downsample.1.running_mean'] = f'features.stage{i}.unit{j+1}.identity_conv.bn.running_mean'
-                key_map[f'layer{i}.{j}.downsample.1.running_var'] = f'features.stage{i}.unit{j+1}.identity_conv.bn.running_var'
+                old_ds_prefix = f'layer{i}.{j}.downsample'
+                new_ds_prefix = f'features.stage{i}.unit{j+1}.identity_conv'
+                key_map[f'{old_ds_prefix}.0.weight'] = f'{new_ds_prefix}.conv.weight'
+                key_map[f'{old_ds_prefix}.1.weight'] = f'{new_ds_prefix}.bn.weight'
+                key_map[f'{old_ds_prefix}.1.bias'] = f'{new_ds_prefix}.bn.bias'
+                key_map[f'{old_ds_prefix}.1.running_mean'] = f'{new_ds_prefix}.bn.running_mean'
+                key_map[f'{old_ds_prefix}.1.running_var'] = f'{new_ds_prefix}.bn.running_var'
+                key_map[f'{old_ds_prefix}.1.num_batches_tracked'] = f'{new_ds_prefix}.bn.num_batches_tracked'
 
-    # Populate the new_state_dict
+    # 3. Final fully-connected layer
+    key_map.update({
+        'fc.weight': 'output.weight',
+        'fc.bias': 'output.bias'
+    })
+
+    # Populate the new_state_dict using the generated map
     for old_key, new_key in key_map.items():
         if old_key in pretrained_state_dict:
             new_state_dict[new_key] = pretrained_state_dict[old_key]
-        # else:
-        #     print(f"Warning: key '{old_key}' not found in pretrained model")
-
-    # Handle unexpected keys that are not mapped (like 'num_batches_tracked')
-    # These are often not needed for inference, so we can usually ignore them.
-    for key in pretrained_state_dict:
-        if 'num_batches_tracked' in key:
-            # You might need to map these as well if your new model requires them,
-            # but usually they are not critical for loading weights.
-            pass
-
-    # Check if all keys in the new model are present in the converted dict
-    # new_model_keys = set(new_model.state_dict().keys())
-    # converted_keys = set(new_state_dict.keys())
-    # missing_keys = new_model_keys - converted_keys
-    # if missing_keys:
-    #     print("Missing keys in converted state_dict:", missing_keys)
 
     return new_state_dict
+
 
 if __name__ == '__main__':
     args = arg_parse()
@@ -143,7 +139,7 @@ if __name__ == '__main__':
     if args.dataset is not None:
         args.dataset = args.dataset.lower()
         args.model = args.model + '_' + args.dataset
-        args.save_path_head = args.save_path_head + '_' + args.dataset
+        args.save_path_head = args.save_path_head
         pretrained_path = f'../checkpoints/{args.model}.pth'
         if not os.path.exists(pretrained_path):
             raise ValueError(f"Pretrained model {pretrained_path} not found")
@@ -171,6 +167,7 @@ if __name__ == '__main__':
             num_classes = 11
         else:
             num_classes = 1000
+        
         
         # Create a new model with the correct number of classes
         model = ptcv_get_model(args.model.split('_')[0], pretrained=False, num_classes=num_classes)
