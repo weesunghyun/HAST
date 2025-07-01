@@ -26,11 +26,15 @@ from PIL import Image
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+from tqdm import tqdm
 # from regularizer import get_reg_criterions
 
-class Generator(nn.Module):
+medmnist_dataset = ["dermamnist", "pathmnist", "octmnist", "pneumoniamnist", "breastmnist", "bloodmnist", "tissuemnist", "organamnist", "organcmnist", "organsmnist"]
+
+
+class Generator_32(nn.Module):
 	def __init__(self, options=None, conf_path=None):
-		super(Generator, self).__init__()
+		super(Generator_32, self).__init__()
 		self.settings = options or Option(conf_path)
 		self.label_emb = nn.Embedding(self.settings.nClasses, self.settings.latent_dim)
 		self.init_size = self.settings.img_size // 4
@@ -65,23 +69,23 @@ class Generator(nn.Module):
 		img = self.conv_blocks2(img)
 		return img
 
-class Generator_imagenet(nn.Module):
+class Generator_224(nn.Module):
 	def __init__(self, options=None, conf_path=None):
 		self.settings = options or Option(conf_path)
 
-		super(Generator_imagenet, self).__init__()
+		super(Generator_224, self).__init__()
 
 		self.init_size = self.settings.img_size // 4
 		self.l1 = nn.Sequential(nn.Linear(self.settings.latent_dim, 128 * self.init_size ** 2))
 
-		self.conv_blocks0_0 = CategoricalConditionalBatchNorm2d(1000, 128)
+		self.conv_blocks0_0 = CategoricalConditionalBatchNorm2d(self.settings.nClasses, 128)
 
 		self.conv_blocks1_0 = nn.Conv2d(128, 128, 3, stride=1, padding=1)
-		self.conv_blocks1_1 = CategoricalConditionalBatchNorm2d(1000, 128, 0.8)
+		self.conv_blocks1_1 = CategoricalConditionalBatchNorm2d(self.settings.nClasses, 128, 0.8)
 		self.conv_blocks1_2 = nn.LeakyReLU(0.2, inplace=True)
 
 		self.conv_blocks2_0 = nn.Conv2d(128, 64, 3, stride=1, padding=1)
-		self.conv_blocks2_1 = CategoricalConditionalBatchNorm2d(1000, 64, 0.8)
+		self.conv_blocks2_1 = CategoricalConditionalBatchNorm2d(self.settings.nClasses, 64, 0.8)
 		self.conv_blocks2_2 = nn.LeakyReLU(0.2, inplace=True)
 		self.conv_blocks2_3 = nn.Conv2d(64, self.settings.channels, 3, stride=1, padding=1)
 		self.conv_blocks2_4 = nn.Tanh()
@@ -104,6 +108,25 @@ class Generator_imagenet(nn.Module):
 		img = self.conv_blocks2_5(img)
 		return img
 
+
+def create_generator(options=None, conf_path=None):
+	if options is not None:
+		settings = options
+	elif conf_path is not None:
+		settings = Option(conf_path)
+	else:
+		raise ValueError("options or conf_path must be provided")
+
+	if settings.img_size == 32:
+		return Generator_32(options=options, conf_path=conf_path)
+	elif settings.img_size == 224:
+		return Generator_224(options=options, conf_path=conf_path)
+	# elif image_size == 64:
+	#     return Generator_64(options=options, conf_path=conf_path) # 향후 확장 가능
+	else:
+		raise ValueError(f"Unsupported image size: {settings.img_size}")
+
+
 class direct_dataset(Dataset):
 	def __init__(self, settings, logger, dataset):
 		self.settings = settings
@@ -111,7 +134,8 @@ class direct_dataset(Dataset):
 		normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 										 std=[0.229, 0.224, 0.225])
 
-		if dataset in ["cifar10", "cifar100"]:
+		# 이미지 크기 기반으로 transform 설정
+		if settings.img_size == 32:
 			self.train_transform = transforms.Compose([
 				transforms.RandomResizedCrop(size=32, scale=(0.5, 1.0)),
 				transforms.RandomHorizontalFlip(),
@@ -130,6 +154,7 @@ class direct_dataset(Dataset):
 			self.logger.info(path)
 			with open(path, "rb") as fp:  # Pickling
 				gaussian_data = pickle.load(fp)
+			
 			# import IPython
 			# IPython.embed()
 			if self.tmp_data is None:
@@ -148,8 +173,8 @@ class direct_dataset(Dataset):
 				self.tmp_label = np.concatenate((self.tmp_label, np.concatenate(labels_list, axis=0)))
 
 		assert len(self.tmp_label) == len(self.tmp_data)
-		print(self.tmp_data.shape, self.tmp_label.shape)
-		print('direct datset image number', len(self.tmp_label))
+		# print(self.tmp_data.shape, self.tmp_label.shape)
+		# print('direct datset image number', len(self.tmp_label))
 
 
 	def __getitem__(self, index):
@@ -222,20 +247,11 @@ class ExperimentDesign:
 		self.train_loader, self.test_loader = data_loader.getloader()
 
 	def _set_model(self):
-		if self.settings.dataset in ["cifar100", "cifar10"]:
-			self.model = ptcv_get_model(self.settings.model_name, pretrained=True)
-			self.model_teacher = ptcv_get_model(self.settings.model_name, pretrained=True)
-			self.generator = Generator(self.settings)
-			self.model_teacher.eval()
-
-		elif self.settings.dataset in ["imagenet"]:
-			self.model = ptcv_get_model(self.settings.model_name, pretrained=True)
-			self.model_teacher = ptcv_get_model(self.settings.model_name, pretrained=True)
-			self.generator = Generator_imagenet(self.settings)
-			self.model_teacher.eval()
-
-		else:
-			assert False, "unsupport data set: " + self.settings.dataset
+		# 모든 데이터셋에 대해 동일한 모델 생성 로직 적용
+		self.model = ptcv_get_model(self.settings.model_name, pretrained=True)
+		self.model_teacher = ptcv_get_model(self.settings.model_name, pretrained=True)
+		self.generator = create_generator(options=self.settings)
+		self.model_teacher.eval()
 		
 		self.model_teacher = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.model_teacher)
 		self.model_teacher = DDP(self.model_teacher.to(self.args.local_rank), device_ids=[self.args.local_rank], output_device=self.args.local_rank, broadcast_buffers=False)
@@ -364,7 +380,7 @@ class ExperimentDesign:
 													   batch_size=min(self.settings.batchSize, len(dataset)),
 													   sampler = DistributedSampler(dataset))
 		try:
-			for epoch in range(self.start_epoch, self.settings.nEpochs):
+			for epoch in tqdm(range(self.start_epoch, self.settings.nEpochs), desc="Training Progress"):
 				self.epoch = epoch
 				self.start_epoch = 0
 
@@ -375,17 +391,12 @@ class ExperimentDesign:
 
 				self.freeze_model(self.model)
 
-				if self.settings.dataset in ["cifar100","cifar10"]:
+				# 모든 데이터셋에 대해 동일한 테스트 로직 적용
+				if epoch >= 0:
 					test_error, test_loss, test5_error = self.trainer.test(epoch=epoch)
-				elif self.settings.dataset in ["imagenet"]:
-					if epoch >= 0:
-						test_error, test_loss, test5_error = self.trainer.test(epoch=epoch)
-					else:
-						test_error = 100
-						test5_error = 100
 				else:
-					assert False, "invalid data set"
-
+					test_error = 100
+					test5_error = 100
 
 				if best_top1 >= test_error:
 					best_top1 = test_error
@@ -416,8 +427,13 @@ def main():
 	parser = argparse.ArgumentParser(description='Baseline')
 	parser.add_argument('--conf_path', type=str, metavar='conf_path',
 	                    help='input the path of config file')
-	parser.add_argument("--local_rank", type=int, default=-1)
+	parser.add_argument("--local_rank", type=int, default=None)
 	args = parser.parse_args()
+
+	# torchrun이 넘겨주는 환경변수 우선 적용
+	if args.local_rank is None or args.local_rank == -1:
+		import os
+		args.local_rank = int(os.environ.get("LOCAL_RANK", 0))
 
 	option = Option(args.conf_path)
 	option.manualSeed = 1

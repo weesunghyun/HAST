@@ -13,11 +13,14 @@ import utils as utils
 import numpy as np
 import torch
 from pytorchcv.models.resnet import ResUnit
-from pytorchcv.models.mobilenet import DwsConvBlock
+# from pytorchcv.models.mobilenet import DwsConvBlock  # 이 import는 사용하지 않음
 from pytorchcv.models.mobilenetv2 import LinearBottleneck
 from quantization_utils.quant_modules import *
 import torch.distributed as dist
-from torch.utils.tensorboard import SummaryWriter
+try:
+	from torch.utils.tensorboard import SummaryWriter
+except ImportError:
+	SummaryWriter = None
 
 
 __all__ = ["Trainer"]
@@ -235,15 +238,11 @@ class Trainer(object):
 			for m in self.model_teacher.module.modules():
 				if isinstance(m, ResUnit):
 					m.body.register_forward_hook(self.hook_activation_teacher)
-				elif isinstance(m, DwsConvBlock):
-					m.pw_conv.bn.register_forward_hook(self.hook_activation_teacher)
 				elif isinstance(m, LinearBottleneck):
 					m.conv3.register_forward_hook(self.hook_activation_teacher)
 			for m in self.model.module.modules():
 				if isinstance(m, ResUnit):
 					m.body.register_forward_hook(self.hook_activation)
-				elif isinstance(m, DwsConvBlock):
-					m.pw_conv.bn.register_forward_hook(self.hook_activation)
 				elif isinstance(m, LinearBottleneck):
 					m.conv3.register_forward_hook(self.hook_activation)
 
@@ -378,6 +377,10 @@ class Trainer(object):
 				
 				labels = labels.to(self.args.local_rank)
 				images = images.to(self.args.local_rank)
+				# print(self.model)
+				# print(images.shape)
+				# print(labels.shape)
+				# breakpoint()
 				output = self.model(images)
 				loss = torch.ones(1)
 				self.mean_list.clear()

@@ -85,6 +85,28 @@ class NetOption(object):
             self.nClasses = 1000
         elif self.dataset == "imagenet100":
             self.nClasses = 100
+        elif self.dataset == 'dermamnist':
+            self.nClasses = 7
+        elif self.dataset == 'pathmnist':
+            self.nClasses = 9
+        elif self.dataset == 'octmnist':
+            self.nClasses = 4
+        elif self.dataset == 'pneumoniamnist':
+            self.nClasses = 2
+        elif self.dataset == 'breastmnist':
+            self.nClasses = 2
+        elif self.dataset == 'bloodmnist':
+            self.nClasses = 8
+        elif self.dataset == 'tissuemnist':
+            self.nClasses = 8
+        elif self.dataset == 'organamnist':
+            self.nClasses = 11
+        elif self.dataset == 'organcmnist':
+            self.nClasses = 11
+        elif self.dataset == 'organsmnist':
+            self.nClasses = 11
+        else:
+            self.nClasses = 1000
 
         if self.depth >= 100:
             self.drawNetwork = False

@@ -99,9 +99,11 @@ class DistillData(object):
         check_path(data_path)
         check_path(label_path)
 
-        if model_name in ['resnet20_cifar10','resnet20_cifar100']:
+        # 이미지 크기 기반으로 shape 결정
+        if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
             shape = (batch_size, 3, 32, 32)
         else:
+            # 기본적으로 224 크기로 처리
             shape = (batch_size, 3, 224, 224)
 
         # initialize hooks and single-precision model
@@ -129,7 +131,8 @@ class DistillData(object):
         for i in range(num_data//batch_size):
             # initialize the criterion, optimizer, and scheduler
 
-            if model_name in ['resnet20_cifar10', 'resnet20_cifar100']:
+            # 이미지 크기 기반으로 transform 설정
+            if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
                 RRC = transforms.RandomResizedCrop(size=32,scale=(augMargin, 1.0))
             else:
                 RRC = transforms.RandomResizedCrop(size=224,scale=(augMargin, 1.0))
@@ -150,7 +153,8 @@ class DistillData(object):
             gt = labels.data.cpu().numpy()
 
             for it in range(500*2):
-                if model_name in ['resnet20_cifar10', 'resnet20_cifar100']:
+                # 이미지 크기 기반으로 augmentation 적용
+                if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
                     new_gaussian_data = []
                     for j in range(len(gaussian_data)):
                         new_gaussian_data.append(gaussian_data[j])

@@ -14,6 +14,12 @@ import struct
 
 __all__ = ["DataLoader", "PartDataLoader"]
 
+medmnist_dataset = [
+    'pathmnist', 'octmnist', 'pneumoniamnist',
+    'breastmnist', 'dermamnist', 'bloodmnist',
+    'tissuemnist', 'organamnist', 'organcmnist',
+    'organsmnist'
+]
 
 class ImageLoader(data.Dataset):
 	def __init__(self, dataset_dir, transform=None, target_transform=None):
@@ -76,6 +82,29 @@ class DataLoader(object):
 		elif self.dataset in ["imagenet"]:
 			self.train_loader, self.test_loader = self.imagenet(
 				dataset=self.dataset)
+		elif self.dataset in medmnist_dataset:
+			import medmnist
+			from medmnist import INFO, Evaluator
+
+			info = INFO[self.dataset]
+			download = True
+
+			DataClass = getattr(medmnist, info['python_class'])
+
+			# preprocessing
+			data_transform = transforms.Compose([
+				transforms.ToTensor(),
+				transforms.Normalize(mean=[.5], std=[.5])
+			])
+
+			# load the data
+			# train_dataset = DataClass(split='train', transform=data_transform, download=download, size=224)
+			test_dataset = DataClass(split='test', transform=data_transform, download=download, size=224)
+
+			# encapsulate data into dataloader form
+			# self.train_loader = data.DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)
+			self.train_loader = None
+			self.test_loader = data.DataLoader(dataset=test_dataset, batch_size=500, shuffle=False)
 		else:
 			assert False, "invalid data set"
 	

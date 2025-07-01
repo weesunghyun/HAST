@@ -102,11 +102,39 @@ class Option(NetOption):
 		logger.info("|===>The used PyTorch version is {}".format(
 				self.torch_version))
 		
-		if self.dataset in ["cifar10", "mnist"]:
-			self.nClasses = 10
-		elif self.dataset == "cifar100":
-			self.nClasses = 100
-		elif self.dataset == "imagenet" or "thi_imgnet":
-			self.nClasses = 1000
-		elif self.dataset == "imagenet100":
-			self.nClasses = 100
+		# 클래스 수를 설정 파일에서 읽어오거나 기본값 사용
+		if hasattr(self, 'nClasses'):
+			# 설정 파일에 nClasses가 이미 정의되어 있음
+			pass
+		else:
+			# 기본값 설정 (하위 호환성을 위해)
+			if self.dataset in ["cifar10", "mnist"]:
+				self.nClasses = 10
+			elif self.dataset == "cifar100":
+				self.nClasses = 100
+			elif self.dataset == "imagenet" or "thi_imgnet":
+				self.nClasses = 1000
+			elif self.dataset == "imagenet100":
+				self.nClasses = 100
+			elif self.dataset == 'dermamnist':
+				self.nClasses = 7
+			elif self.dataset == 'pathmnist':
+				self.nClasses = 9
+			elif self.dataset == 'octmnist':
+				self.nClasses = 4
+			elif self.dataset == 'pneumoniamnist':
+				self.nClasses = 2
+			elif self.dataset == 'breastmnist':
+				self.nClasses = 2
+			elif self.dataset == 'bloodmnist':
+				self.nClasses = 8
+			elif self.dataset == 'tissuemnist':
+				self.nClasses = 8
+			elif self.dataset == 'organamnist':
+				self.nClasses = 11
+			elif self.dataset == 'organcmnist':
+				self.nClasses = 11
+			elif self.dataset == 'organsmnist':
+				self.nClasses = 11
+			else:
+				self.nClasses = 1000
