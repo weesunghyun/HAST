@@ -34,6 +34,7 @@ class Option(NetOption):
 		
 		# ---------- Model options ---------------------------------------------
 		self.nClasses = self.conf['nClasses']  # number of classes in the dataset
+		self.pretrained_path = f'./checkpoints/{self.model_name}_{self.dataset}.pth'
 		
 		# ---------- Quantization options ---------------------------------------------
 		self.qw = self.conf['qw']

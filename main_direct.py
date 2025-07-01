@@ -27,6 +27,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
+from collections import OrderedDict
 # from regularizer import get_reg_criterions
 
 medmnist_dataset = ["dermamnist", "pathmnist", "octmnist", "pneumoniamnist", "breastmnist", "bloodmnist", "tissuemnist", "organamnist", "organcmnist", "organsmnist"]
@@ -186,6 +187,78 @@ class direct_dataset(Dataset):
 	def __len__(self):
 		return len(self.tmp_label)
 
+
+def convert_state_dict(pretrained_state_dict, new_model):
+    """
+    Converts a pretrained ResNet-18 state_dict to match the key format of the new model,
+    including all 'num_batches_tracked' keys for BatchNorm layers.
+
+    Args:
+        pretrained_state_dict (OrderedDict): The state_dict object from the pretrained model.
+        new_model (torch.nn.Module): An instance of the new model architecture.
+
+    Returns:
+        OrderedDict: The converted state_dict.
+    """
+    # For debugging: Check if the problematic key exists in the source state_dict
+    if 'bn1.num_batches_tracked' not in pretrained_state_dict:
+        print("Warning: 'bn1.num_batches_tracked' not found in the source checkpoint!")
+
+    new_state_dict = OrderedDict()
+    key_map = {}
+
+    # 1. Initial block (conv1 and bn1)
+    key_map.update({
+        'conv1.weight': 'features.init_block.conv.conv.weight',
+        'bn1.weight': 'features.init_block.conv.bn.weight',
+        'bn1.bias': 'features.init_block.conv.bn.bias',
+        'bn1.running_mean': 'features.init_block.conv.bn.running_mean',
+        'bn1.running_var': 'features.init_block.conv.bn.running_var',
+        'bn1.num_batches_tracked': 'features.init_block.conv.bn.num_batches_tracked'  # The missing key
+    })
+
+    # 2. ResNet stages (layer1 to layer4)
+    for i in range(1, 5):  # Stages 1-4
+        for j in range(2):  # Units 1-2 (for ResNet-18)
+            # Body convolutions and their batchnorms
+            for conv_idx in [1, 2]:
+                old_prefix = f'layer{i}.{j}.conv{conv_idx}'
+                new_prefix = f'features.stage{i}.unit{j+1}.body.conv{conv_idx}'
+                key_map[f'{old_prefix}.weight'] = f'{new_prefix}.conv.weight'
+
+                old_bn_prefix = f'layer{i}.{j}.bn{conv_idx}'
+                new_bn_prefix = f'features.stage{i}.unit{j+1}.body.conv{conv_idx}'
+                key_map[f'{old_bn_prefix}.weight'] = f'{new_bn_prefix}.bn.weight'
+                key_map[f'{old_bn_prefix}.bias'] = f'{new_bn_prefix}.bn.bias'
+                key_map[f'{old_bn_prefix}.running_mean'] = f'{new_bn_prefix}.bn.running_mean'
+                key_map[f'{old_bn_prefix}.running_var'] = f'{new_bn_prefix}.bn.running_var'
+                key_map[f'{old_bn_prefix}.num_batches_tracked'] = f'{new_bn_prefix}.bn.num_batches_tracked'
+
+            # Downsample (identity) convolution for stages 2, 3, 4
+            if i > 1 and j == 0:
+                old_ds_prefix = f'layer{i}.{j}.downsample'
+                new_ds_prefix = f'features.stage{i}.unit{j+1}.identity_conv'
+                key_map[f'{old_ds_prefix}.0.weight'] = f'{new_ds_prefix}.conv.weight'
+                key_map[f'{old_ds_prefix}.1.weight'] = f'{new_ds_prefix}.bn.weight'
+                key_map[f'{old_ds_prefix}.1.bias'] = f'{new_ds_prefix}.bn.bias'
+                key_map[f'{old_ds_prefix}.1.running_mean'] = f'{new_ds_prefix}.bn.running_mean'
+                key_map[f'{old_ds_prefix}.1.running_var'] = f'{new_ds_prefix}.bn.running_var'
+                key_map[f'{old_ds_prefix}.1.num_batches_tracked'] = f'{new_ds_prefix}.bn.num_batches_tracked'
+
+    # 3. Final fully-connected layer
+    key_map.update({
+        'fc.weight': 'output.weight',
+        'fc.bias': 'output.bias'
+    })
+
+    # Populate the new_state_dict using the generated map
+    for old_key, new_key in key_map.items():
+        if old_key in pretrained_state_dict:
+            new_state_dict[new_key] = pretrained_state_dict[old_key]
+
+    return new_state_dict
+
+
 class ExperimentDesign:
 	def __init__(self, options=None, args=None, logger=None):
 		self.settings = options
@@ -247,9 +320,28 @@ class ExperimentDesign:
 		self.train_loader, self.test_loader = data_loader.getloader()
 
 	def _set_model(self):
-		# 모든 데이터셋에 대해 동일한 모델 생성 로직 적용
-		self.model = ptcv_get_model(self.settings.model_name, pretrained=True)
-		self.model_teacher = ptcv_get_model(self.settings.model_name, pretrained=True)
+
+		if self.settings.dataset in medmnist_dataset:
+			num_classes = self.settings.nClasses
+			self.model = ptcv_get_model(self.settings.model_name, pretrained=False, num_classes=num_classes)
+			self.model_teacher = ptcv_get_model(self.settings.model_name, pretrained=False, num_classes=num_classes)
+			print(f'****** Model created with {num_classes} classes for {self.settings.dataset} ******')
+
+			# Load checkpoint and handle different formats
+			checkpoint = torch.load(self.settings.pretrained_path, map_location='cpu')
+			if isinstance(checkpoint, dict) and 'net' in checkpoint:
+				converted_state_dict = convert_state_dict(checkpoint['net'], self.model)
+			else:
+				converted_state_dict = convert_state_dict(checkpoint, self.model)
+		
+			self.model.load_state_dict(converted_state_dict)
+			self.model_teacher.load_state_dict(converted_state_dict)
+			print(f'****** Pretrained model {self.settings.pretrained_path} loaded ******')
+
+		else:
+			self.model = ptcv_get_model(self.settings.model_name, pretrained=True)
+			self.model_teacher = ptcv_get_model(self.settings.model_name, pretrained=True)
+
 		self.generator = create_generator(options=self.settings)
 		self.model_teacher.eval()
 		
