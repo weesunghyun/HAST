@@ -28,7 +28,7 @@ def arg_parse():
                             'pathmnist', 'octmnist', 'pneumoniamnist',
                             'breastmnist', 'dermamnist', 'bloodmnist',
                             'tissuemnist', 'organamnist', 'organcmnist',
-                            'organsmnist'
+                            'organsmnist', 'retinamnist'
                         ],
                         help='dataset to generate calibration data for')
     parser.add_argument('--batch_size',
@@ -149,6 +149,8 @@ if __name__ == '__main__':
             num_classes = 7
         elif args.dataset == 'pathmnist':
             num_classes = 9
+        elif args.dataset == 'retinamnist':
+            num_classes = 5
         elif args.dataset == 'octmnist':
             num_classes = 4
         elif args.dataset == 'pneumoniamnist':

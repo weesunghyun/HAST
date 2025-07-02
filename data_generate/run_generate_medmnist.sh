@@ -4,8 +4,10 @@ datasets=(
     # 'octmnist'
     # 'pneumoniamnist'
     # 'breastmnist'
-    'dermamnist'
+    # 'dermamnist'
     # 'bloodmnist'
+	# 'retinamnist'
+	'tissuemnist'
 )
 
 for dataset in ${datasets[@]}

@@ -30,7 +30,7 @@ from tqdm import tqdm
 from collections import OrderedDict
 # from regularizer import get_reg_criterions
 
-medmnist_dataset = ["dermamnist", "pathmnist", "octmnist", "pneumoniamnist", "breastmnist", "bloodmnist", "tissuemnist", "organamnist", "organcmnist", "organsmnist"]
+medmnist_dataset = ["dermamnist", "retinamnist","pathmnist", "octmnist", "pneumoniamnist", "breastmnist", "bloodmnist", "tissuemnist", "organamnist", "organcmnist", "organsmnist"]
 
 
 class Generator_32(nn.Module):

@@ -18,7 +18,7 @@ medmnist_dataset = [
     'pathmnist', 'octmnist', 'pneumoniamnist',
     'breastmnist', 'dermamnist', 'bloodmnist',
     'tissuemnist', 'organamnist', 'organcmnist',
-    'organsmnist'
+    'organsmnist', 'retinamnist'
 ]
 
 class ImageLoader(data.Dataset):
