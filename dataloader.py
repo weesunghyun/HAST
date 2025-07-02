@@ -94,6 +94,7 @@ class DataLoader(object):
 			# preprocessing
 			data_transform = transforms.Compose([
 				transforms.ToTensor(),
+				transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.size(0) == 1 else x),  # Convert grayscale to RGB
 				transforms.Normalize(mean=[.5], std=[.5])
 			])
 
