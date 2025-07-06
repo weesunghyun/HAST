@@ -4,6 +4,22 @@ TODO: add doc for module
 import torch
 
 __all__ = ["NetOption"]
+
+# Classification task datasets from MedMNIST2D
+CLASSIFICATION_DATASETS = {
+    'pathmnist': 9,      # Colon Pathology - Multi-Class (9)
+    'dermamnist': 7,     # Dermatoscope - Multi-Class (7)
+    'octmnist': 4,       # Retinal OCT - Multi-Class (4)
+    'pneumoniamnist': 2, # Chest X-Ray - Binary-Class (2)
+    'retinamnist': 5,    # Fundus Camera - Ordinal Regression (5) - treated as classification
+    'breastmnist': 2,    # Breast Ultrasound - Binary-Class (2)
+    'bloodmnist': 8,     # Blood Cell Microscope - Multi-Class (8)
+    'tissuemnist': 8,    # Kidney Cortex Microscope - Multi-Class (8)
+    'organamnist': 11,   # Abdominal CT - Multi-Class (11)
+    'organcmnist': 11,   # Abdominal CT - Multi-Class (11)
+    'organsmnist': 11,   # Abdominal CT - Multi-Class (11)
+}
+
 """
 You can run your script with CUDA_VISIBLE_DEVICES=5,6 python your_script.py
 or set the environment variable in the script by os.environ['CUDA_VISIBLE_DEVICES'] = '5,6'
@@ -85,26 +101,8 @@ class NetOption(object):
             self.nClasses = 1000
         elif self.dataset == "imagenet100":
             self.nClasses = 100
-        elif self.dataset == 'dermamnist':
-            self.nClasses = 7
-        elif self.dataset == 'pathmnist':
-            self.nClasses = 9
-        elif self.dataset == 'octmnist':
-            self.nClasses = 4
-        elif self.dataset == 'pneumoniamnist':
-            self.nClasses = 2
-        elif self.dataset == 'breastmnist':
-            self.nClasses = 2
-        elif self.dataset == 'bloodmnist':
-            self.nClasses = 8
-        elif self.dataset == 'tissuemnist':
-            self.nClasses = 8
-        elif self.dataset == 'organamnist':
-            self.nClasses = 11
-        elif self.dataset == 'organcmnist':
-            self.nClasses = 11
-        elif self.dataset == 'organsmnist':
-            self.nClasses = 11
+        elif self.dataset in CLASSIFICATION_DATASETS:
+            self.nClasses = CLASSIFICATION_DATASETS[self.dataset]
         else:
             self.nClasses = 1000
 

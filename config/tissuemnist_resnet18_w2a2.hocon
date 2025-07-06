@@ -9,7 +9,7 @@ dataset = "tissuemnist"
 nThreads = 8  # number of data loader threads
 
 # ---------- Optimization options --------------------------------------
-nEpochs = 400  # number of total epochs to train 400
+nEpochs = 100  # number of total epochs to train 400
 batchSize = 4  # batchsize
 momentum = 0.9  # momentum 0.9
 weightDecay = 1e-4  # weight decay 1e-4

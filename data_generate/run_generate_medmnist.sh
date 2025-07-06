@@ -6,8 +6,8 @@ datasets=(
     # 'breastmnist'
     # 'dermamnist'
     # 'bloodmnist'
-	# 'retinamnist'
-	'tissuemnist'
+	'retinamnist'
+	# 'tissuemnist'
 )
 
 for dataset in ${datasets[@]}

@@ -1,10 +1,12 @@
 gpu_id=0
 master_port=8901
 config_path=(
+    ./config/dermamnist_resnet18_w2a2.hocon
     # ./config/dermamnist_resnet18_w3a3.hocon
     # ./config/dermamnist_resnet18_w4a4.hocon
-    ./config/tissuemnist_resnet18_w3a3.hocon
-    ./config/tissuemnist_resnet18_w4a4.hocon
+    ./config/tissuemnist_resnet18_w2a2.hocon
+    # ./config/tissuemnist_resnet18_w3a3.hocon
+    # ./config/tissuemnist_resnet18_w4a4.hocon
 )
 
 for config in "${config_path[@]}"; do

@@ -8,6 +8,21 @@ from pytorchcv.model_provider import get_model as ptcv_get_model
 from distill_data import *
 from collections import OrderedDict
 
+# Classification task datasets from MedMNIST2D
+CLASSIFICATION_DATASETS = {
+    'pathmnist': 9,      # Colon Pathology - Multi-Class (9)
+    'dermamnist': 7,     # Dermatoscope - Multi-Class (7)
+    'octmnist': 4,       # Retinal OCT - Multi-Class (4)
+    'pneumoniamnist': 2, # Chest X-Ray - Binary-Class (2)
+    'retinamnist': 5,    # Fundus Camera - Ordinal Regression (5) - treated as classification
+    'breastmnist': 2,    # Breast Ultrasound - Binary-Class (2)
+    'bloodmnist': 8,     # Blood Cell Microscope - Multi-Class (8)
+    'tissuemnist': 8,    # Kidney Cortex Microscope - Multi-Class (8)
+    'organamnist': 11,   # Abdominal CT - Multi-Class (11)
+    'organcmnist': 11,   # Abdominal CT - Multi-Class (11)
+    'organsmnist': 11,   # Abdominal CT - Multi-Class (11)
+}
+
 # model settings
 def arg_parse():
     parser = argparse.ArgumentParser(
@@ -24,12 +39,7 @@ def arg_parse():
     parser.add_argument('--dataset',
                         type=str,
                         default=None,
-                        choices=[
-                            'pathmnist', 'octmnist', 'pneumoniamnist',
-                            'breastmnist', 'dermamnist', 'bloodmnist',
-                            'tissuemnist', 'organamnist', 'organcmnist',
-                            'organsmnist', 'retinamnist'
-                        ],
+                        choices=list(CLASSIFICATION_DATASETS.keys()),
                         help='dataset to generate calibration data for')
     parser.add_argument('--batch_size',
                         type=int,
@@ -145,30 +155,7 @@ if __name__ == '__main__':
             raise ValueError(f"Pretrained model {pretrained_path} not found")
         
         # Determine the correct number of classes for the dataset
-        if args.dataset == 'dermamnist':
-            num_classes = 7
-        elif args.dataset == 'pathmnist':
-            num_classes = 9
-        elif args.dataset == 'retinamnist':
-            num_classes = 5
-        elif args.dataset == 'octmnist':
-            num_classes = 4
-        elif args.dataset == 'pneumoniamnist':
-            num_classes = 2
-        elif args.dataset == 'breastmnist':
-            num_classes = 2
-        elif args.dataset == 'bloodmnist':
-            num_classes = 8
-        elif args.dataset == 'tissuemnist':
-            num_classes = 8
-        elif args.dataset == 'organamnist':
-            num_classes = 11
-        elif args.dataset == 'organcmnist':
-            num_classes = 11
-        elif args.dataset == 'organsmnist':
-            num_classes = 11
-        else:
-            num_classes = 1000
+        num_classes = CLASSIFICATION_DATASETS.get(args.dataset, 1000)
         
         
         # Create a new model with the correct number of classes

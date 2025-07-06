@@ -14,12 +14,22 @@ import struct
 
 __all__ = ["DataLoader", "PartDataLoader"]
 
-medmnist_dataset = [
-    'pathmnist', 'octmnist', 'pneumoniamnist',
-    'breastmnist', 'dermamnist', 'bloodmnist',
-    'tissuemnist', 'organamnist', 'organcmnist',
-    'organsmnist', 'retinamnist'
-]
+# Classification task datasets from MedMNIST2D
+CLASSIFICATION_DATASETS = {
+    'pathmnist': 9,      # Colon Pathology - Multi-Class (9)
+    'dermamnist': 7,     # Dermatoscope - Multi-Class (7)
+    'octmnist': 4,       # Retinal OCT - Multi-Class (4)
+    'pneumoniamnist': 2, # Chest X-Ray - Binary-Class (2)
+    'retinamnist': 5,    # Fundus Camera - Ordinal Regression (5) - treated as classification
+    'breastmnist': 2,    # Breast Ultrasound - Binary-Class (2)
+    'bloodmnist': 8,     # Blood Cell Microscope - Multi-Class (8)
+    'tissuemnist': 8,    # Kidney Cortex Microscope - Multi-Class (8)
+    'organamnist': 11,   # Abdominal CT - Multi-Class (11)
+    'organcmnist': 11,   # Abdominal CT - Multi-Class (11)
+    'organsmnist': 11,   # Abdominal CT - Multi-Class (11)
+}
+
+medmnist_dataset = list(CLASSIFICATION_DATASETS.keys())
 
 class ImageLoader(data.Dataset):
 	def __init__(self, dataset_dir, transform=None, target_transform=None):

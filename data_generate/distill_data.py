@@ -106,6 +106,8 @@ class DistillData(object):
             # 기본적으로 224 크기로 처리
             shape = (batch_size, 3, 224, 224)
 
+        print("shape", shape)
+
         # initialize hooks and single-precision model
         teacher_model = teacher_model.cuda()
         teacher_model = teacher_model.eval()
@@ -138,10 +140,10 @@ class DistillData(object):
                 RRC = transforms.RandomResizedCrop(size=224,scale=(augMargin, 1.0))
             RHF = transforms.RandomHorizontalFlip()
 
-            gaussian_data = torch.randn(shape).cuda()
+            gaussian_data = torch.randn(shape).cuda()/2.0
             gaussian_data.requires_grad = True
             # optimizer = optim.Adam([gaussian_data], lr=0.5)
-            optimizer = optim.Adam([gaussian_data], lr=0.05)
+            optimizer = optim.Adam([gaussian_data], lr=0.1)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                              min_lr=1e-4,
                                                              verbose=False,

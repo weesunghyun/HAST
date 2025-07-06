@@ -30,7 +30,22 @@ from tqdm import tqdm
 from collections import OrderedDict
 # from regularizer import get_reg_criterions
 
-medmnist_dataset = ["dermamnist", "retinamnist","pathmnist", "octmnist", "pneumoniamnist", "breastmnist", "bloodmnist", "tissuemnist", "organamnist", "organcmnist", "organsmnist"]
+# Classification task datasets from MedMNIST2D
+CLASSIFICATION_DATASETS = {
+    'pathmnist': 9,      # Colon Pathology - Multi-Class (9)
+    'dermamnist': 7,     # Dermatoscope - Multi-Class (7)
+    'octmnist': 4,       # Retinal OCT - Multi-Class (4)
+    'pneumoniamnist': 2, # Chest X-Ray - Binary-Class (2)
+    'retinamnist': 5,    # Fundus Camera - Ordinal Regression (5) - treated as classification
+    'breastmnist': 2,    # Breast Ultrasound - Binary-Class (2)
+    'bloodmnist': 8,     # Blood Cell Microscope - Multi-Class (8)
+    'tissuemnist': 8,    # Kidney Cortex Microscope - Multi-Class (8)
+    'organamnist': 11,   # Abdominal CT - Multi-Class (11)
+    'organcmnist': 11,   # Abdominal CT - Multi-Class (11)
+    'organsmnist': 11,   # Abdominal CT - Multi-Class (11)
+}
+
+medmnist_dataset = list(CLASSIFICATION_DATASETS.keys())
 
 
 class Generator_32(nn.Module):
