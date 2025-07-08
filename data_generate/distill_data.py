@@ -9,8 +9,9 @@ import torch.nn.functional as F
 import random
 import pickle
 import sys
-import torchvision.transforms as transforms
 
+from torchvision import transforms
+from torchvision import datasets
 
 def check_path(model_path):
     """
@@ -86,7 +87,8 @@ class DistillData(object):
                                 augMargin=0.4,
                                 beta=1.0,
                                 gamma=0,
-                                save_path_head=""
+                                save_path_head="",
+                                init_data_path=None
                                 ):
 
         data_path = os.path.join(save_path_head, model_name+"_refined_gaussian_hardsample_" \
@@ -98,6 +100,25 @@ class DistillData(object):
 
         check_path(data_path)
         check_path(label_path)
+
+        # Prepare dataset for initialization if provided
+        init_dataset = None
+        if init_data_path is not None:
+            if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
+                init_transform = transforms.Compose([
+                    transforms.Resize(32),
+                    transforms.CenterCrop(32),
+                    transforms.ToTensor()
+                ])
+            else:
+                init_transform = transforms.Compose([
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor()
+                ])
+            init_dataset = datasets.ImageFolder(init_data_path, transform=init_transform)
+            init_len = len(init_dataset)
+            print(f"Init dataset loaded from {init_data_path}, {init_len} images")
 
         # 이미지 크기 기반으로 shape 결정
         if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
@@ -140,10 +161,16 @@ class DistillData(object):
                 RRC = transforms.RandomResizedCrop(size=224,scale=(augMargin, 1.0))
             RHF = transforms.RandomHorizontalFlip()
 
-            gaussian_data = torch.randn(shape).cuda()/2.0
+            # gaussian_data = torch.randn(shape).cuda()/2.0
+            if init_dataset is not None:
+                indices = torch.randint(0, init_len, (batch_size,))
+                imgs = [init_dataset[idx][0] for idx in indices]
+                gaussian_data = torch.stack(imgs).cuda()
+            else:
+                gaussian_data = torch.randn(shape).cuda()            
             gaussian_data.requires_grad = True
             # optimizer = optim.Adam([gaussian_data], lr=0.5)
-            optimizer = optim.Adam([gaussian_data], lr=0.1)
+            optimizer = optim.Adam([gaussian_data], lr=0.05)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                              min_lr=1e-4,
                                                              verbose=False,

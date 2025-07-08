@@ -65,6 +65,10 @@ def arg_parse():
                         type=str,
                         default='',
                         help='save_path_head')
+    parser.add_argument('--init_data_path',
+                        type=str,
+                        default=None,
+                        help='path to real images used for initialization')
 
     args = parser.parse_args()
     return args
@@ -192,7 +196,8 @@ if __name__ == '__main__':
         group=args.group,
         beta=args.beta,
         gamma=args.gamma,
-        save_path_head=args.save_path_head
+        save_path_head=args.save_path_head,
+        init_data_path=args.init_data_path
     )
 
     print('****** Data Generated ******')
