@@ -154,11 +154,13 @@ class direct_dataset(Dataset):
 		if settings.img_size == 32:
 			self.train_transform = transforms.Compose([
 				transforms.RandomResizedCrop(size=32, scale=(0.5, 1.0)),
+				transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.size(0) == 1 else x),  # Convert grayscale to RGB
 				transforms.RandomHorizontalFlip(),
 			])
 		else:
 			self.train_transform = transforms.Compose([
 				transforms.RandomResizedCrop(size=224, scale=(0.5, 1.0)),
+				transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.size(0) == 1 else x),  # Convert grayscale to RGB
 				transforms.RandomHorizontalFlip(),
 			])
 

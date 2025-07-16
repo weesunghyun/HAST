@@ -1,12 +1,12 @@
 #!/bin/bash
 datasets=(
-    # 'pathmnist'
+    'pathmnist'
     # 'octmnist'
     # 'pneumoniamnist'
     # 'breastmnist'
     # 'dermamnist'
     # 'bloodmnist'
-	'retinamnist'
+	# 'retinamnist'
 	# 'tissuemnist'
 )
 
@@ -23,6 +23,7 @@ do
 			--beta=0.1 \
 			--gamma=0.5 \
 			--save_path_head=../data/$dataset \
+			# --init_data_path=/home/dataset/imagenet/train
 
 	done
 done

@@ -167,10 +167,10 @@ class DistillData(object):
                 imgs = [init_dataset[idx][0] for idx in indices]
                 gaussian_data = torch.stack(imgs).cuda()
             else:
-                gaussian_data = torch.randn(shape).cuda()            
+                gaussian_data = torch.randn(shape).cuda()/5.0            
             gaussian_data.requires_grad = True
             # optimizer = optim.Adam([gaussian_data], lr=0.5)
-            optimizer = optim.Adam([gaussian_data], lr=0.05)
+            optimizer = optim.Adam([gaussian_data], lr=0.005)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                              min_lr=1e-4,
                                                              verbose=False,
