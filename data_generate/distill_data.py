@@ -221,10 +221,14 @@ class DistillData(object):
                     mean_loss += MSE_loss(self.mean_list[num], self.teacher_running_mean[num].detach())
                     var_loss += MSE_loss(self.var_list[num], self.teacher_running_var[num].detach())
 
-                mean_loss = mean_loss / len(self.mean_list)
-                var_loss = var_loss / len(self.mean_list)
-
-                total_loss = mean_loss + var_loss + loss_target
+                num_bn = len(self.mean_list)
+                if num_bn == 0:
+                    print("Warning: no BatchNorm hooks triggered; skipping BN losses.")
+                    total_loss = loss_target
+                else:
+                    mean_loss = mean_loss / num_bn
+                    var_loss = var_loss / num_bn
+                    total_loss = mean_loss + var_loss + loss_target
                 print(f"Batch: {i}, Iter: {it}, LR: {optimizer.state_dict()['param_groups'][0]['lr']:.4f}, "
                       f"Mean Loss: {mean_loss.item():.4f}, Var Loss: {var_loss.item():.4f}, "
                       f"Target Loss: {loss_target.item():.4f}")

@@ -281,9 +281,14 @@ class Trainer(object):
 					BNS_loss += self.MSE_loss(self.mean_list[num], self.teacher_running_mean[num]) + self.MSE_loss(
 						self.var_list[num], self.teacher_running_var[num])
 
-				BNS_loss = BNS_loss / len(self.mean_list)
-				# loss of Generator
-				loss_G = loss_one_hot + 0.1 * BNS_loss
+				num_bn = len(self.mean_list)
+				if num_bn == 0:
+					print("Warning: no BatchNorm hooks triggered; skipping BN losses.")
+					loss_G = loss_one_hot
+				else:
+					BNS_loss = BNS_loss / num_bn
+					# loss of Generator
+					loss_G = loss_one_hot + 0.1 * BNS_loss
 				self.backward_G(loss_G)
 				output = self.model(images.detach())
 				loss_S = torch.zeros(1).to(self.args.local_rank)
