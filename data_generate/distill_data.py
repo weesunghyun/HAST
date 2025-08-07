@@ -262,4 +262,116 @@ class DistillData(object):
         sys.exit()
         # return refined_gaussian
 
+    def getDistilData_dsv(self,
+                          model_name="resnet18",
+                          teacher_model=None,
+                          num_data=1280,
+                          batch_size=256,
+                          num_batch=1,
+                          group=1,
+                          beta=1.0,
+                          gamma=0.0,
+                          save_path_head="",
+                          init_data_path=None,
+                          steps=200):
+        """Generate data using Deep Support Vector synthesis."""
+
+        data_path = os.path.join(save_path_head, model_name + "_dsv_beta" + str(beta) + "_group" + str(group) + ".pickle")
+        label_path = os.path.join(save_path_head, model_name + "_labels_dsv_beta" + str(beta) + "_group" + str(group) + ".pickle")
+
+        check_path(data_path)
+        check_path(label_path)
+
+        # Prepare dataset for initialization if provided
+        init_dataset = None
+        if init_data_path is not None:
+            if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
+                init_transform = transforms.Compose([
+                    transforms.Resize(32),
+                    transforms.CenterCrop(32),
+                    transforms.ToTensor(),
+                ])
+            else:
+                init_transform = transforms.Compose([
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                ])
+            init_dataset = datasets.ImageFolder(init_data_path, transform=init_transform)
+            init_len = len(init_dataset)
+
+        # Determine input shape
+        if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
+            shape = (batch_size, 3, 32, 32)
+        else:
+            shape = (batch_size, 3, 224, 224)
+
+        teacher_model = teacher_model.cuda().eval()
+
+        with torch.no_grad():
+            dummy_input = torch.randn(1, *shape[1:]).cuda()
+            dummy_output = teacher_model(dummy_input)
+            self.num_classes = dummy_output.shape[1]
+
+        refined_data = []
+        labels_list = []
+
+        for i in range(num_data // batch_size):
+            if init_dataset is not None:
+                indices = torch.randint(0, init_len, (batch_size,))
+                imgs = [init_dataset[idx][0] for idx in indices]
+                x = torch.stack(imgs).cuda()
+            else:
+                x = torch.randn(shape).cuda()
+            x.requires_grad = True
+
+            lamb = torch.ones(batch_size, device='cuda', requires_grad=True)
+            labels = torch.randint(0, self.num_classes, (batch_size,), device='cuda')
+
+            optimizer = optim.Adam([x, lamb], lr=0.01)
+
+            for it in range(steps):
+                aug_x = x
+                output = teacher_model(aug_x)
+                preds = output.argmax(dim=1)
+
+                ce = F.cross_entropy(output, labels, reduction='none')
+                primal_loss = (ce * (preds != labels).float()).mean()
+
+                grads_sum = [torch.zeros_like(p) for p in teacher_model.parameters()]
+                for b in range(batch_size):
+                    loss_b = F.cross_entropy(output[b:b+1], labels[b:b+1])
+                    grads_b = torch.autograd.grad(loss_b, list(teacher_model.parameters()), retain_graph=True, create_graph=True)
+                    for g_idx, g in enumerate(grads_b):
+                        grads_sum[g_idx] += lamb[b] * g
+
+                stat_loss = 0.0
+                for p, g in zip(teacher_model.parameters(), grads_sum):
+                    stat_loss = stat_loss + (p.detach() + g).abs().mean()
+
+                tv_loss = (x[:, :, :, :-1] - x[:, :, :, 1:]).abs().mean() + (x[:, :, :-1, :] - x[:, :, 1:, :]).abs().mean()
+                norm_loss = x.pow(2).mean()
+
+                total_loss = stat_loss + beta * primal_loss + 0.001 * tv_loss + 0.001 * norm_loss
+
+                optimizer.zero_grad()
+                total_loss.backward()
+                optimizer.step()
+
+                lamb.data.clamp_(min=0)
+
+            refined_data.append(x.detach().cpu().numpy())
+            labels_list.append(labels.detach().cpu().numpy())
+
+            del x
+            del lamb
+            del optimizer
+            torch.cuda.empty_cache()
+
+        with open(data_path, "wb") as fp:
+            pickle.dump(refined_data, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(label_path, "wb") as fp:
+            pickle.dump(labels_list, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        sys.exit()
+
 
