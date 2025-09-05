@@ -29,6 +29,7 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
 from collections import OrderedDict
 # from regularizer import get_reg_criterions
+from models import ResNet18, ResNet50
 
 # Classification task datasets from MedMNIST2D
 CLASSIFICATION_DATASETS = {
@@ -135,6 +136,9 @@ def create_generator(options=None, conf_path=None):
 
 	if settings.img_size == 32:
 		return Generator_32(options=options, conf_path=conf_path)
+	elif settings.img_size == 28:
+		# For 28x28 models, use Generator_32 as they have similar architecture
+		return Generator_32(options=options, conf_path=conf_path)
 	elif settings.img_size == 224:
 		return Generator_224(options=options, conf_path=conf_path)
 	# elif image_size == 64:
@@ -151,9 +155,9 @@ class direct_dataset(Dataset):
 										 std=[0.229, 0.224, 0.225])
 
 		# 이미지 크기 기반으로 transform 설정
-		if settings.img_size == 32:
+		if settings.img_size in [28, 32]:
 			self.train_transform = transforms.Compose([
-				transforms.RandomResizedCrop(size=32, scale=(0.5, 1.0)),
+				transforms.RandomResizedCrop(size=settings.img_size, scale=(0.5, 1.0)),
 				transforms.Lambda(lambda x: x.repeat(3, 1, 1) if x.size(0) == 1 else x),  # Convert grayscale to RGB
 				transforms.RandomHorizontalFlip(),
 			])
@@ -205,18 +209,39 @@ class direct_dataset(Dataset):
 		return len(self.tmp_label)
 
 
-def convert_state_dict(pretrained_state_dict, new_model):
+def convert_state_dict(pretrained_state_dict, new_model, model_type='standard'):
     """
-    Converts a pretrained ResNet-18 state_dict to match the key format of the new model,
-    including all 'num_batches_tracked' keys for BatchNorm layers.
-
+    Converts a pretrained ResNet-18 state_dict to match the key format of the new model.
+    
     Args:
         pretrained_state_dict (OrderedDict): The state_dict object from the pretrained model.
         new_model (torch.nn.Module): An instance of the new model architecture.
+        model_type (str): Type of model ('28x28' or 'standard').
 
     Returns:
         OrderedDict: The converted state_dict.
     """
+    if model_type == '28x28':
+        # For 28x28 models, need to convert from checkpoint naming to our model naming
+        new_state_dict = OrderedDict()
+        key_map = {}
+        
+        # Map shortcut -> downsample and linear -> fc
+        for key, value in pretrained_state_dict.items():
+            new_key = key
+            if 'shortcut' in key:
+                new_key = key.replace('shortcut', 'downsample')
+            elif 'linear' in key:
+                new_key = key.replace('linear', 'fc')
+            key_map[key] = new_key
+        
+        # Apply the mapping
+        for old_key, new_key in key_map.items():
+            new_state_dict[new_key] = pretrained_state_dict[old_key]
+        
+        return new_state_dict
+    
+    # For standard 224x224 models, use the existing conversion logic
     # For debugging: Check if the problematic key exists in the source state_dict
     if 'bn1.num_batches_tracked' not in pretrained_state_dict:
         print("Warning: 'bn1.num_batches_tracked' not found in the source checkpoint!")
@@ -316,8 +341,8 @@ class ExperimentDesign:
 		self._set_dataloader()
 		self._set_model()
 		self._replace()
-		# self.logger.info(self.model_teacher)
-		# self.logger.info(self.model)
+		self.logger.info(self.model_teacher)
+		self.logger.info(self.model)
 		self._set_trainer()
 	
 	def _set_gpu(self):
@@ -340,20 +365,32 @@ class ExperimentDesign:
 
 		if self.settings.dataset in medmnist_dataset:
 			num_classes = self.settings.nClasses
-			self.model = ptcv_get_model(self.settings.model_name, pretrained=False, num_classes=num_classes)
-			self.model_teacher = ptcv_get_model(self.settings.model_name, pretrained=False, num_classes=num_classes)
-			print(f'****** Model created with {num_classes} classes for {self.settings.dataset} ******')
+			if self.settings.img_size == 28:
+				self.model = ResNet18(in_channels=3, num_classes=num_classes, img_size=self.settings.img_size)
+				self.model_teacher = ResNet18(in_channels=3, num_classes=num_classes, img_size=self.settings.img_size)
+				print(f'****** 28x28 ResNet18 model created with {num_classes} classes for {self.settings.dataset} ******')
 
-			# Load checkpoint and handle different formats
-			checkpoint = torch.load(self.settings.pretrained_path, map_location='cpu')
-			if isinstance(checkpoint, dict) and 'net' in checkpoint:
-				converted_state_dict = convert_state_dict(checkpoint['net'], self.model)
+				# Load checkpoint and handle different formats
+				checkpoint = torch.load(self.settings.pretrained_path, map_location='cpu')
+				
+				self.model.load_state_dict(checkpoint['net'])
+				self.model_teacher.load_state_dict(checkpoint['net'])
+				print(f'****** Pretrained model {self.settings.pretrained_path} loaded ******')
 			else:
-				converted_state_dict = convert_state_dict(checkpoint, self.model)
-		
-			self.model.load_state_dict(converted_state_dict)
-			self.model_teacher.load_state_dict(converted_state_dict)
-			print(f'****** Pretrained model {self.settings.pretrained_path} loaded ******')
+				self.model = ptcv_get_model(self.settings.model_name, pretrained=False, num_classes=num_classes)
+				self.model_teacher = ptcv_get_model(self.settings.model_name, pretrained=False, num_classes=num_classes)
+				print(f'****** Model created with {num_classes} classes for {self.settings.dataset} ******')
+
+				# Load checkpoint and handle different formats
+				checkpoint = torch.load(self.settings.pretrained_path, map_location='cpu')
+				if isinstance(checkpoint, dict) and 'net' in checkpoint:
+					converted_state_dict = convert_state_dict(checkpoint['net'], self.model)
+				else:
+					converted_state_dict = convert_state_dict(checkpoint, self.model)
+			
+				self.model.load_state_dict(converted_state_dict)
+				self.model_teacher.load_state_dict(converted_state_dict)
+				print(f'****** Pretrained model {self.settings.pretrained_path} loaded ******')
 
 		else:
 			self.model = ptcv_get_model(self.settings.model_name, pretrained=True)

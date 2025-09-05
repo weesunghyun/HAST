@@ -7,6 +7,10 @@ import os
 from pytorchcv.model_provider import get_model as ptcv_get_model
 from distill_data import *
 from collections import OrderedDict
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from models import ResNet18, ResNet50
 
 # Classification task datasets from MedMNIST2D
 CLASSIFICATION_DATASETS = {
@@ -41,6 +45,10 @@ def arg_parse():
                         default=None,
                         choices=list(CLASSIFICATION_DATASETS.keys()),
                         help='dataset to generate calibration data for')
+    parser.add_argument('--image_size',
+                        type=int,
+                        default=None,
+                        help='image size')
     parser.add_argument('--batch_size',
                         type=int,
                         default=32,
@@ -153,28 +161,43 @@ if __name__ == '__main__':
     if args.dataset is not None:
         args.dataset = args.dataset.lower()
         args.model = args.model + '_' + args.dataset
-        args.save_path_head = args.save_path_head
-        pretrained_path = f'../checkpoints/{args.model}.pth'
+        if args.image_size is not None:
+            args.save_path_head = args.save_path_head + '_' + str(args.image_size)
+            pretrained_path = f'../checkpoints/{args.model}_{args.image_size}.pth'
+        else:
+            args.save_path_head = args.save_path_head
+            pretrained_path = f'../checkpoints/{args.model}.pth'
+
         if not os.path.exists(pretrained_path):
             raise ValueError(f"Pretrained model {pretrained_path} not found")
         
         # Determine the correct number of classes for the dataset
         num_classes = CLASSIFICATION_DATASETS.get(args.dataset, 1000)
         
-        
-        # Create a new model with the correct number of classes
-        model = ptcv_get_model(args.model.split('_')[0], pretrained=False, num_classes=num_classes)
-        print(f'****** Model created with {num_classes} classes for {args.dataset} ******')
-        
-        # Load checkpoint and handle different formats
-        checkpoint = torch.load(pretrained_path, map_location='cpu')
-        if isinstance(checkpoint, dict) and 'net' in checkpoint:
-            converted_state_dict = convert_state_dict(checkpoint['net'], model)
+        if args.image_size == 28:
+            model = ResNet18(in_channels=3, num_classes=num_classes, img_size=28)
+            print(f'****** ResNet18 model created with {num_classes} classes for {args.dataset} (28x28) ******')
+            checkpoint = torch.load(pretrained_path, map_location='cpu')
+            # if isinstance(checkpoint, dict) and 'net' in checkpoint:
+            #     converted_state_dict = convert_state_dict(checkpoint['net'], model)
+            # else:
+            #     converted_state_dict = convert_state_dict(checkpoint, model)
+            model.load_state_dict(checkpoint['net'])
+            print(f'****** Pretrained model {pretrained_path} loaded ******')
         else:
-            converted_state_dict = convert_state_dict(checkpoint, model)
-    
-        model.load_state_dict(converted_state_dict)
-        print(f'****** Pretrained model {pretrained_path} loaded ******')
+            # Create a new model with the correct number of classes
+            model = ptcv_get_model(args.model.split('_')[0], pretrained=False, num_classes=num_classes)
+            print(f'****** Model created with {num_classes} classes for {args.dataset} ******')
+            
+            # Load checkpoint and handle different formats
+            checkpoint = torch.load(pretrained_path, map_location='cpu')
+            if isinstance(checkpoint, dict) and 'net' in checkpoint:
+                converted_state_dict = convert_state_dict(checkpoint['net'], model)
+            else:
+                converted_state_dict = convert_state_dict(checkpoint, model)
+        
+            model.load_state_dict(converted_state_dict)
+            print(f'****** Pretrained model {pretrained_path} loaded ******')
 
     else:
         model = ptcv_get_model(args.model, pretrained=True)

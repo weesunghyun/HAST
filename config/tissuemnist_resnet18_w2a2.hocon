@@ -1,7 +1,9 @@
 #  ------------ General options ----------------------------------------
 model_name = resnet18
-generateDataPath = "/home/project/dfq/SynQ/src/data_imagenet/tissuemnist/resnet18_tissuemnist_refined_gaussian_hardsample_beta0.1_gamma0.5_group"
-generateLabelPath = "/home/project/dfq/SynQ/src/data_imagenet/tissuemnist/resnet18_tissuemnist_labels_hardsample_beta0.1_gamma0.5_group"
+# generateDataPath = "/home/project/dfq/SynQ/src/data_imagenet/tissuemnist/resnet18_tissuemnist_refined_gaussian_hardsample_beta0.1_gamma0.5_group"
+# generateLabelPath = "/home/project/dfq/SynQ/src/data_imagenet/tissuemnist/resnet18_tissuemnist_labels_hardsample_beta0.1_gamma0.5_group"
+generateDataPath = "./data/tissuemnist_28/resnet18_tissuemnist_refined_gaussian_hardsample_beta0.1_gamma0.5_group"
+generateLabelPath = "./data/tissuemnist_28/resnet18_tissuemnist_labels_hardsample_beta0.1_gamma0.5_group"
 dataPath = "/mnt/cephfs/mixed/dataset/imagenet/"
 dataset = "tissuemnist"
 
@@ -33,7 +35,7 @@ alpha = 20
 
 # ----------Generator options ---------------------------------------------
 latent_dim = 100
-img_size = 224
+img_size = 28 # 224
 channels = 3
 
 lr_G = 0.001       # default 0.001

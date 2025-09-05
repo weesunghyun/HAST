@@ -34,7 +34,10 @@ class Option(NetOption):
 		
 		# ---------- Model options ---------------------------------------------
 		self.nClasses = self.conf['nClasses']  # number of classes in the dataset
-		self.pretrained_path = f'./checkpoints/{self.model_name}_{self.dataset}.pth'
+		if self.conf['img_size'] == 28:
+			self.pretrained_path = f'./checkpoints/{self.model_name}_{self.dataset}_28.pth'
+		else:
+			self.pretrained_path = f'./checkpoints/{self.model_name}_{self.dataset}.pth'
 		
 		# ---------- Quantization options ---------------------------------------------
 		self.qw = self.conf['qw']

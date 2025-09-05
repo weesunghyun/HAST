@@ -121,8 +121,14 @@ class DistillData(object):
             print(f"Init dataset loaded from {init_data_path}, {init_len} images")
 
         # 이미지 크기 기반으로 shape 결정
-        if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
-            shape = (batch_size, 3, 32, 32)
+        if hasattr(teacher_model, 'img_size'):
+            if teacher_model.img_size == 32:
+                shape = (batch_size, 3, 32, 32)
+            elif teacher_model.img_size == 28:
+                shape = (batch_size, 3, 28, 28)
+            else:
+                # 기본적으로 224 크기로 처리
+                shape = (batch_size, 3, 224, 224)
         else:
             # 기본적으로 224 크기로 처리
             shape = (batch_size, 3, 224, 224)
@@ -155,8 +161,13 @@ class DistillData(object):
             # initialize the criterion, optimizer, and scheduler
 
             # 이미지 크기 기반으로 transform 설정
-            if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
-                RRC = transforms.RandomResizedCrop(size=32,scale=(augMargin, 1.0))
+            if hasattr(teacher_model, 'img_size'):
+                if teacher_model.img_size == 32:
+                    RRC = transforms.RandomResizedCrop(size=32,scale=(augMargin, 1.0))
+                elif teacher_model.img_size == 28:
+                    RRC = transforms.RandomResizedCrop(size=28,scale=(augMargin, 1.0))
+                else:
+                    RRC = transforms.RandomResizedCrop(size=224,scale=(augMargin, 1.0))
             else:
                 RRC = transforms.RandomResizedCrop(size=224,scale=(augMargin, 1.0))
             RHF = transforms.RandomHorizontalFlip()
@@ -183,12 +194,27 @@ class DistillData(object):
 
             for it in range(500*2):
                 # 이미지 크기 기반으로 augmentation 적용
-                if hasattr(teacher_model, 'img_size') and teacher_model.img_size == 32:
-                    new_gaussian_data = []
-                    for j in range(len(gaussian_data)):
-                        new_gaussian_data.append(gaussian_data[j])
-                    new_gaussian_data = torch.stack(new_gaussian_data).cuda()
+                if hasattr(teacher_model, 'img_size'):
+                    if teacher_model.img_size in [28, 32]:
+                        # 28x28이나 32x32 모델은 augmentation 없이 처리
+                        new_gaussian_data = []
+                        for j in range(len(gaussian_data)):
+                            new_gaussian_data.append(gaussian_data[j])
+                        new_gaussian_data = torch.stack(new_gaussian_data).cuda()
+                    else:
+                        # 224x224 모델은 augmentation 적용
+                        if random.random() < 0.5:
+                            new_gaussian_data = []
+                            for j in range(len(gaussian_data)):
+                                new_gaussian_data.append(RHF(RRC(gaussian_data[j])))
+                            new_gaussian_data = torch.stack(new_gaussian_data).cuda()
+                        else:
+                            new_gaussian_data = []
+                            for j in range(len(gaussian_data)):
+                                new_gaussian_data.append(gaussian_data[j])
+                            new_gaussian_data = torch.stack(new_gaussian_data).cuda()
                 else:
+                    # 기본적으로 224x224 모델로 처리
                     if random.random() < 0.5:
                         new_gaussian_data = []
                         for j in range(len(gaussian_data)):

@@ -110,7 +110,8 @@ class DataLoader(object):
 
 			# load the data
 			# train_dataset = DataClass(split='train', transform=data_transform, download=download, size=224)
-			test_dataset = DataClass(split='test', transform=data_transform, download=download, size=224)
+			# test_dataset = DataClass(split='test', transform=data_transform, download=download, size=224)
+			test_dataset = DataClass(split='test', transform=data_transform, download=download, size=28)
 
 			# encapsulate data into dataloader form
 			# self.train_loader = data.DataLoader(dataset=train_dataset, batch_size=100, shuffle=True)

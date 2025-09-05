@@ -33,7 +33,7 @@ alpha = 20
 
 # ----------Generator options ---------------------------------------------
 latent_dim = 100
-img_size = 224
+img_size = 28 # 224
 channels = 3
 
 lr_G = 0.001       # default 0.001
