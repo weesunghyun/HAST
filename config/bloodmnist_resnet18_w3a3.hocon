@@ -1,7 +1,9 @@
 #  ------------ General options ----------------------------------------
 model_name = resnet18
-generateDataPath = "/home/project/dfq/SynQ/src/data/bloodmnist/resnet18_bloodmnist_refined_gaussian_hardsample_beta0.1_gamma0.5_group"
-generateLabelPath = "/home/project/dfq/SynQ/src/data/bloodmnist/resnet18_bloodmnist_labels_hardsample_beta0.1_gamma0.5_group"
+#generateDataPath = "/home/project/dfq/SynQ/src/data/bloodmnist/resnet18_bloodmnist_refined_gaussian_hardsample_beta0.1_gamma0.5_group"
+#generateLabelPath = "/home/project/dfq/SynQ/src/data/bloodmnist/resnet18_bloodmnist_labels_hardsample_beta0.1_gamma0.5_group"
+generateDataPath = "./data/bloodmnist_28/resnet18_refined_gaussian_hardsample_beta0.1_gamma0.5_group"
+generateLabelPath = "./data/bloodmnist_28/resnet18_labels_hardsample_beta0.1_gamma0.5_group"
 dataPath = "/mnt/cephfs/mixed/dataset/imagenet/"
 dataset = "bloodmnist"
 
@@ -10,7 +12,7 @@ nThreads = 8  # number of data loader threads
 
 # ---------- Optimization options --------------------------------------
 nEpochs = 150  # number of total epochs to train 400
-batchSize = 4  # batchsize
+batchSize = 64 # 4  # batchsize
 momentum = 0.9  # momentum 0.9
 weightDecay = 1e-4  # weight decay 1e-4
 opt_type = "SGD"
