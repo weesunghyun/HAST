@@ -77,6 +77,11 @@ def arg_parse():
                         type=str,
                         default=None,
                         help='path to real images used for initialization')
+    parser.add_argument('--synthesis',
+                        type=str,
+                        default='inversion',
+                        choices=['inversion', 'dsv'],
+                        help='data synthesis method')
 
     args = parser.parse_args()
     return args
@@ -213,16 +218,28 @@ if __name__ == '__main__':
     # test(model.cuda(), test_loader)
     # Generate distilled data
     DD = DistillData()
-    dataloader = DD.getDistilData_hardsample(
-        model_name=args.model,
-        teacher_model=model.cuda(),
-        batch_size=args.batch_size,
-        group=args.group,
-        beta=args.beta,
-        gamma=args.gamma,
-        save_path_head=args.save_path_head,
-        init_data_path=args.init_data_path
-    )
+    if args.synthesis == 'dsv':
+        dataloader = DD.getDistilData_dsv(
+            model_name=args.model,
+            teacher_model=model.cuda(),
+            batch_size=args.batch_size,
+            group=args.group,
+            beta=args.beta,
+            gamma=args.gamma,
+            save_path_head=args.save_path_head,
+            init_data_path=args.init_data_path
+        )
+    else:
+        dataloader = DD.getDistilData_hardsample(
+            model_name=args.model,
+            teacher_model=model.cuda(),
+            batch_size=args.batch_size,
+            group=args.group,
+            beta=args.beta,
+            gamma=args.gamma,
+            save_path_head=args.save_path_head,
+            init_data_path=args.init_data_path
+        )
 
     print('****** Data Generated ******')
 
