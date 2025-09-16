@@ -180,8 +180,8 @@ class DistillData(object):
             else:
                 gaussian_data = torch.randn(shape).cuda()/5.0            
             gaussian_data.requires_grad = True
-            # optimizer = optim.Adam([gaussian_data], lr=0.5)
-            optimizer = optim.Adam([gaussian_data], lr=0.005)
+            optimizer = optim.Adam([gaussian_data], lr=0.5)
+            # optimizer = optim.Adam([gaussian_data], lr=0.005)
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                              min_lr=1e-4,
                                                              verbose=False,
@@ -239,7 +239,15 @@ class DistillData(object):
                 mask=mask.scatter_(1,b,torch.ones_like(b).float())
                 p=a[mask.bool()]
 
-                loss_target = beta * ((1-p).pow(gamma) * CE_loss(output, labels)).mean()
+                # loss_target = beta * ((1-p).pow(gamma) * CE_loss(output, labels)).mean()
+                p_clamped = p.clamp(max=1.0 - 1e-7) # p의 최댓값을 1보다 아주 약간 작게 제한
+
+                if gamma == 0:
+                    loss_target = beta * (CE_loss(output, labels)).mean()
+                else:
+                    # 안정화된 p_clamped 값을 사용하여 loss 계산
+                    loss_target = beta * ((1 - p_clamped).pow(gamma) * CE_loss(output, labels)).mean()                
+                
 
                 mean_loss = torch.zeros(1).cuda()
                 var_loss = torch.zeros(1).cuda()

@@ -160,13 +160,14 @@ if __name__ == '__main__':
     # Load pretrained model
     if args.dataset is not None:
         args.dataset = args.dataset.lower()
-        args.model = args.model + '_' + args.dataset
+        # args.model = args.model + '_' + args.dataset
         if args.image_size is not None:
             args.save_path_head = args.save_path_head + '_' + str(args.image_size)
-            pretrained_path = f'../checkpoints/{args.model}_{args.image_size}.pth'
+            # pretrained_path = f'../checkpoints/{args.model}_{args.image_size}.pth'
+            pretrained_path = f'/home/project/dfq/medmnist/{args.dataset}/{args.model}_{args.image_size}_2.pth'
         else:
             args.save_path_head = args.save_path_head
-            pretrained_path = f'../checkpoints/{args.model}.pth'
+            pretrained_path = f'../checkpoints/{args.model}_{args.dataset}.pth'
 
         if not os.path.exists(pretrained_path):
             raise ValueError(f"Pretrained model {pretrained_path} not found")
